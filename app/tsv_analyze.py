@@ -15,6 +15,7 @@ import numpy as np
 import math
 import time
 import datetime
+import os
 
 def loadModel():
 
@@ -81,7 +82,7 @@ def splitSignal(sig, rate, overlap, seconds=3.0, minlen=1.5):
 
 def readAudioData(path, overlap, sample_rate=48000):
 
-    print('READING AUDIO DATA...', end=' ', flush=True)
+    print(('READING AUDIO DATA FROM ' + path), end=' ', flush=True)
 
     # Open file with librosa (uses ffmpeg or libav)
     sig, rate = librosa.load(path, sr=sample_rate, mono=True, res_type='kaiser_fast')
@@ -185,7 +186,7 @@ def writeResultsToFile(detections, min_conf, path):
     print('WRITING RESULTS TO', path, '...', end=' ')
     rcnt = 0
     with open(path, 'w') as rfile:
-        rfile.write('Start\End\tScientific name\tCommon name\tConfidence\n')
+        rfile.write('Start\tEnd\tScientific name\tCommon name\tConfidence\n')
         for d in detections:
             for entry in detections[d]:
                 if entry[1] >= min_conf and (entry[0] in WHITE_LIST or len(WHITE_LIST) == 0):
@@ -194,14 +195,36 @@ def writeResultsToFile(detections, min_conf, path):
                     rcnt += 1
     print('DONE! WROTE', rcnt, 'RESULTS.')
 
+
+def getOutputPath(input):
+#        filenameParts = args.i.split("/")
+#        filename = filenameParts[-1]
+#        args.o = "results_" + filename + ".tsv"
+    outputPath = input + "_results.tsv"
+    return outputPath  
+    # TODO: include datetime in filename
+
+
+def getAudioFileList(folder):
+    audioFileList = []
+    objects = os.listdir(folder)
+    print(objects) # debug
+    for name in objects:
+        if name.lower().endswith(".wav") or name.lower().endswith(".mp3"):
+            audioFileList.append(folder + "/" + name)
+
+    return tuple(audioFileList)
+
+
 def main():
 
     global WHITE_LIST
 
     # Parse passed arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--i', help='Path to input file.')
-    parser.add_argument('--o', default='default', help='Path to output file. Defaults to result.csv.')
+    parser.add_argument('--folder', default='noFolder', help='Path to input folder.')
+    parser.add_argument('--i', default='', help='Path to input file.')
+#    parser.add_argument('--o', default='default', help='Path to output file. Defaults to result.csv.')
     parser.add_argument('--lat', type=float, default=-1, help='Recording location latitude. Set -1 to ignore.')
     parser.add_argument('--lon', type=float, default=-1, help='Recording location longitude. Set -1 to ignore.')
     parser.add_argument('--week', type=int, default=-1, help='Week of the year when the recording was made. Values in [1, 48] (4 weeks per month). Set -1 to ignore.')
@@ -212,14 +235,14 @@ def main():
 
     args = parser.parse_args()
 
-    # Default to adaptive result filename
-    # TODO: datetime
-    if "default" == args.o:
-#        filenameParts = args.i.split("/")
-#        filename = filenameParts[-1]
-#        args.o = "results_" + filename + ".tsv"
-        args.o = args.i + "_results.tsv"
+    # Handle all files in folder
+    if args.folder != "noFolder":
+        audioFileList = getAudioFileList(args.folder)
+    # Handle only one file
+    else:
+        audioFileList = (args.i,)
 
+    #    outputPath = getOutputPath(args.i)
 
     # Load model
     interpreter = loadModel()
@@ -230,18 +253,23 @@ def main():
     else:
         WHITE_LIST = []
 
+    # Loop each file
+    for filePath in audioFileList:
 
-    # Read audio data
-    audioData = readAudioData(args.i, args.overlap)
+        outputPath = getOutputPath(filePath)
 
-    # Process audio data and get detections
-    week = max(1, min(args.week, 48))
-    sensitivity = max(0.5, min(1.0 - (args.sensitivity - 1.0), 1.5))
-    detections = analyzeAudioData(audioData, args.lat, args.lon, week, sensitivity, args.overlap, interpreter)
+        # Read audio data
+        audioData = readAudioData(filePath, args.overlap)
 
-    # Write detections to output file
-    min_conf = max(0.01, min(args.min_conf, 0.99))
-    writeResultsToFile(detections, min_conf, args.o)
+        # Process audio data and get detections
+        week = max(1, min(args.week, 48))
+        sensitivity = max(0.5, min(1.0 - (args.sensitivity - 1.0), 1.5))
+        detections = analyzeAudioData(audioData, args.lat, args.lon, week, sensitivity, args.overlap, interpreter)
+
+        # Write detections to output file
+        min_conf = max(0.01, min(args.min_conf, 0.99))
+        writeResultsToFile(detections, min_conf, outputPath)
+
 
 if __name__ == '__main__':
 
@@ -251,4 +279,6 @@ if __name__ == '__main__':
     # python3 analyze.py --i 'example/XC558716 - Soundscape.mp3' --lat 35.4244 --lon -120.7463 --week 18
     # python3 analyze.py --i 'example/XC563936 - Soundscape.mp3' --lat 47.6766 --lon -122.294 --week 11 --overlap 1.5 --min_conf 0.25 --sensitivity 1.25 --custom_list 'example/custom_species_list.txt'
 
-    # python3 tsv_analyze.py -ii ../_audio/HLO10_20190507_060000.wav --lat 60.18 --lon 24.68 --week 17
+    # python3 tsv_analyze.py --i ../_audio/HLO10_20190507_060000.wav --lat 60.18 --lon 24.68 --week 17
+
+    # python3 tsv_analyze.py --folder '../_audio/' --lat 60.18 --lon 24.68 --week 22
