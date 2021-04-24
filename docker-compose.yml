@@ -1,0 +1,21 @@
+
+version: '3'
+
+services:
+
+  birdnet:
+#    image: tiangolo/uwsgi-nginx-flask:python3.7
+    build: .
+    image: mikkohei13/birdnet
+    container_name: birdnet
+    volumes:
+      - ./app:/app
+      - ./_audio:/_audio
+    ports:
+      - 80:80
+    command: tail -F anything
+
+volumes: 
+  birdnet-volume:
+
+
