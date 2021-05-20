@@ -191,7 +191,7 @@ def writeResultsToFile(detections, min_conf, path):
             for entry in detections[d]:
                 if entry[1] >= min_conf and (entry[0] in WHITE_LIST or len(WHITE_LIST) == 0):
                     startEndString = formatTimesToString(d, separator)
-                    rfile.write(startEndString + separator + entry[0].replace('_', separator) + separator + str(entry[1]) + '\n')
+                    rfile.write(startEndString + separator + entry[0].replace('_', separator) + separator + str(round(entry[1], 2)) + '\n')
                     rcnt += 1
     print('DONE! WROTE', rcnt, 'RESULTS.')
 
@@ -267,6 +267,7 @@ def main():
         detections = analyzeAudioData(audioData, args.lat, args.lon, week, sensitivity, args.overlap, interpreter)
 
         # Write detections to output file
+        # TODO: Write settings to file
         min_conf = max(0.01, min(args.min_conf, 0.99))
         writeResultsToFile(detections, min_conf, outputPath)
 
@@ -281,4 +282,8 @@ if __name__ == '__main__':
 
     # python3 tsv_analyze.py --i ../_audio/HLO10_20190507_060000.wav --lat 60.18 --lon 24.68 --week 17
 
-    # python3 tsv_analyze.py --folder '../_audio/' --lat 60.18 --lon 24.68 --week 22
+    # Espoo
+    # python3 tsv_analyze.py --folder '../_audio/' --lat 61.12 --lon 25.85 --week 22 --min_conf 0.50 --sensitivity 1.5
+
+    # Asikkala
+
